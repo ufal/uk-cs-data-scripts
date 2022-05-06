@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import string
 import sys
 
 UNIGRAM_TABLE = {
@@ -31,13 +30,13 @@ BIGRAM_TABLE = {
     "ďu": "дю", "ťu": "тю", "ňu": "ню",
 }
 
+NON_JOINING = ["цг", "йа", "йі", "йе", "йу", "шч"]
+
 
 def latin_to_cyril(text):
     is_upper = (
-        len( [c for c in text if c.isupper()]) >
+        len([c for c in text if c.isupper()]) >
         len([c for c in text if c.islower()]))
-
-    no_punct = text.strip(string.punctuation).lower()
 
     if text.startswith("<latin>"):
         return text[7:]
@@ -45,58 +44,53 @@ def latin_to_cyril(text):
     output = []
     i = 0
     while i < len(text):
+        if text[i:].startswith("<latin_char>"):
+            output.append(text[i + 12])
+            i += 13
+            continue
+
         if i < len(text) - 1:
             bigram = text[i:i + 2]
 
-            ignore_bigram = False
-
-            if bigram in BIGRAM_TABLE and not ignore_bigram:
+            if bigram in BIGRAM_TABLE:
                 trans = BIGRAM_TABLE[bigram]
                 if is_upper and len(trans) > 1:
                     trans = trans.upper()
-                output.append(trans)
                 i += 2
+                if trans.islower() and output and output[-1].isupper() and len(output[-1]) > 1:
+                    output[-1] = output[-1][0] + output[-1][1:].lower()
+                output.append(trans)
                 continue
 
         unigram = text[i]
         trans = UNIGRAM_TABLE.get(unigram, unigram)
         if is_upper and (len(trans) > 1 or trans == 'ь'):
             trans = trans.upper()
+        if trans.islower() and output and output[-1].isupper() and len(output[-1]) > 1:
+            output[-1] = output[-1][0] + output[-1][1:].lower()
         output.append(trans)
         i += 1
 
     out_str = "".join(output)
-    out_str = out_str.replace("Ц-Г", "ЦГ")
-    out_str = out_str.replace("Й-А", "ЙА")
-    out_str = out_str.replace("Й-І", "ЙІ")
-    out_str = out_str.replace("Й-Е", "ЙЕ")
-    out_str = out_str.replace("Й-У", "ЙУ")
-    out_str = out_str.replace("Ц-г", "Цг")
-    out_str = out_str.replace("Й-а", "Йа")
-    out_str = out_str.replace("Й-і", "Йі")
-    out_str = out_str.replace("Й-е", "Йе")
-    out_str = out_str.replace("Й-у", "Йу")
-    out_str = out_str.replace("ц-г", "цг")
-    out_str = out_str.replace("й-а", "йа")
-    out_str = out_str.replace("й-і", "йі")
-    out_str = out_str.replace("й-е", "йе")
-    out_str = out_str.replace("й-у", "йу")
 
-    out_str = out_str.replace("Ц---Г", "Ц-Г")
-    out_str = out_str.replace("Й---А", "Й-А")
-    out_str = out_str.replace("Й---І", "Й-І")
-    out_str = out_str.replace("Й---Е", "Й-Е")
-    out_str = out_str.replace("Й---У", "Й-У")
-    out_str = out_str.replace("Ц---г", "Ц-г")
-    out_str = out_str.replace("Й---а", "Й-а")
-    out_str = out_str.replace("Й---і", "Й-і")
-    out_str = out_str.replace("Й---е", "Й-е")
-    out_str = out_str.replace("Й---у", "Й-у")
-    out_str = out_str.replace("ц---г", "ц-г")
-    out_str = out_str.replace("й---а", "й-а")
-    out_str = out_str.replace("й---і", "й-і")
-    out_str = out_str.replace("й---е", "й-е")
-    out_str = out_str.replace("й---у", "й-у")
+    for pair in NON_JOINING:
+        # 1. Escape them if there are sepeterate by dash already
+        out_str = out_str.replace(pair[0] + "-" + pair[1], pair[0] + pair[1])
+        out_str = out_str.replace(
+            pair[0].upper() + "-" + pair[1], pair[0].upper() + pair[1])
+        out_str = out_str.replace(
+            pair[0].upper() + "-" + pair[1].upper(),
+            pair[0].upper() + pair[1].upper())
+
+        # 2. Add dash not to merge them
+        out_str = out_str.replace(
+            pair[0] + "---" + pair[1], pair[0] + "-" + pair[1])
+        out_str = out_str.replace(
+            pair[0].upper() + "---" + pair[1], pair[0].upper() + "-" + pair[1])
+        out_str = out_str.replace(
+            pair[0].upper() + "---" + pair[1].upper(),
+            pair[0].upper() + "-" + pair[1].upper())
+
     return out_str
 
 

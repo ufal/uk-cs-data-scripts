@@ -8,6 +8,9 @@ import sys
 LATIN_RE = re.compile(r"[A-Za-zěščřýžýáíéúůďťňóĚŠČŘÝŽÝÁÍÉÚŮĎŤŇÓöüäëèñĺçÖÜÄľĽËÈÑĹÇ]")
 
 
+CYRIL_RE = re.compile(r"[АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщюя]")
+
+
 SOFT = ["Ь", "ь"]
 
 
@@ -33,87 +36,68 @@ SOFTENING = {
     "d": "ď", "t": "ť", "n": "ň",
 }
 
+NON_JOINING = ["цг", "йа", "йі", "йе", "йу", "шч"]
+
 
 def cyril_to_latin(text):
     # HANDLE DOUBLE LETTERS THAT SHOULD BE KEPT
-    # 1. Escape them if there are sepeterate by dash already
-    text = text.replace("Ц-Г", "Ц---Г")
-    text = text.replace("Й-А", "Й---А")
-    text = text.replace("Й-І", "Й---І")
-    text = text.replace("Й-Е", "Й---Е")
-    text = text.replace("Й-У", "Й---У")
-    text = text.replace("Ц-г", "Ц---г")
-    text = text.replace("Й-а", "Й---а")
-    text = text.replace("Й-і", "Й---і")
-    text = text.replace("Й-е", "Й---е")
-    text = text.replace("Й-у", "Й---у")
-    text = text.replace("ц-г", "ц---г")
-    text = text.replace("й-а", "й---а")
-    text = text.replace("й-і", "й---і")
-    text = text.replace("й-е", "й---е")
-    text = text.replace("й-у", "й---у")
+    for pair in NON_JOINING:
+        # 1. Escape them if there are sepeterate by dash already
+        text = text.replace(pair[0] + "-" + pair[1], pair[0] + "---" + pair[1])
+        text = text.replace(pair[0].upper() + "-" + pair[1], pair[0].upper() + "---" + pair[1])
+        text = text.replace(pair[0].upper() + "-" + pair[1].upper(), pair[0].upper() + "---" + pair[1].upper())
 
-    # 2. Add dash not to merge them
-    text = text.replace("ЦГ", "Ц-Г")
-    text = text.replace("ЙА", "Й-А")
-    text = text.replace("ЙІ", "Й-І")
-    text = text.replace("ЙЕ", "Й-Е")
-    text = text.replace("ЙУ", "Й-У")
-    text = text.replace("Цг", "Ц-г")
-    text = text.replace("Йа", "Й-а")
-    text = text.replace("Йі", "Й-і")
-    text = text.replace("Йе", "Й-е")
-    text = text.replace("Йу", "Й-у")
-    text = text.replace("цг", "ц-г")
-    text = text.replace("цг", "ц-г")
-    text = text.replace("йа", "й-а")
-    text = text.replace("йі", "й-і")
-    text = text.replace("йе", "й-е")
-    text = text.replace("йу", "й-у")
-
+        # 2. Add dash not to merge them
+        text = text.replace(pair[0] + pair[1], pair[0] + "-" + pair[1])
+        text = text.replace(pair[0].upper() + pair[1], pair[0].upper() + "-" + pair[1])
+        text = text.replace(pair[0].upper() + pair[1].upper(), pair[0].upper() + "-" + pair[1].upper())
 
     output = []
 
-    if LATIN_RE.search(text):
+    if LATIN_RE.search(text) and CYRIL_RE.search(text) is None:
         return f"<latin>{text}"
 
-    for i, ch in enumerate(text):
-        trans = TABLE.get(ch, ch)
+    for i, char in enumerate(text):
+        if LATIN_RE.search(char):
+            output.append(f"<latin_char>{char}")
+            continue
+
+        trans = TABLE.get(char, char)
         if len(trans) > 1 and i < len(text) - 1 and text[i + 1].islower():
             trans = trans[0] + trans[1:].lower()
 
-        if ch.lower() == "je" and output and output[-1] in SOFTENING:
-            if ch == "Є":
+        if trans.lower() == "je" and output and output[-1] in SOFTENING:
+            if char == "Є":
                 trans = "Ě"
-            if ch == "є":
+            if char == "є":
                 trans = "ě"
 
-        if ch.lower() == "ja" and output and output[-1] in SOFTENING:
+        if trans.lower() == "ja" and output and output[-1] in SOFTENING:
             output[-1] = SOFTENING.get(output[-1], output[-1])
-            if ch == "Я":
+            if char == "Я":
                 trans = "A"
-            if ch == "я":
+            if char == "я":
                 trans = "a"
 
-        if ch.lower() == "ju" and output and output[-1] in SOFTENING:
+        if trans.lower() == "ju" and output and output[-1] in SOFTENING:
             output[-1] = SOFTENING.get(output[-1], output[-1])
-            if ch == "Ю":
+            if char == "Ю":
                 trans = "U"
-            if ch == "ю":
+            if char == "ю":
                 trans = "u"
 
-        if ch.lower() == "ji" and output and output[-1] in SOFTENING:
+        if trans.lower() == "ji" and output and output[-1] in SOFTENING:
             output[-1] = SOFTENING.get(output[-1], output[-1])
-            if ch == "Ї":
+            if char == "Ї":
                 trans = "I"
-            if ch == "ї":
+            if char == "ї":
                 trans = "i"
 
-        if ch in SOFT and output:
+        if char in SOFT and output:
             if output[-1] in SOFTENING:
                 output[-1] = SOFTENING.get(output[-1], output[-1])
             else:
-                output.append("ˇ")
+                output.append(char)
             continue
 
         output.append(trans)
