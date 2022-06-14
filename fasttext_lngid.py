@@ -15,7 +15,7 @@ import fasttext
 def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument(
-        "model", nargs="+", type=str,
+        "model", nargs="?", type=str,
         default="/lnet/work/people/libovicky/ua/lid.176.ftz")
     args = parser.parse_args()
 

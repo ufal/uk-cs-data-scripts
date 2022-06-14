@@ -22,8 +22,8 @@ def main():
 
     for line in args.input:
         tokens = tokenizer.encode(
-            line.strip(), out_type=str, enable_sampling=True,
-            alpha=0.1, nbest_size=-1)
+            line.strip(), out_type=str, enable_sampling=False,
+            alpha=1.0, nbest_size=-1)
 
         if len(tokens) < 2:
             continue
@@ -33,7 +33,7 @@ def main():
             len(tokens), mask_start + int(len(tokens) * args.mask_ratio))
 
         src_tokens = []
-        tgt_tokens = []
+        # tgt_tokens = []
 
         for i, tok in enumerate(tokens):
             if mask_start <= i < mask_end:
@@ -46,15 +46,15 @@ def main():
                     src_tokens.append(
                         tokenizer.id_to_piece(random.randint(
                             1, tokenizer.vocab_size() - 1)))
-                tgt_tokens.append(tok)
+                # tgt_tokens.append(tok)
             else:
                 src_tokens.append(tok)
-                tgt_tokens.append(args.mask_token)
+                # tgt_tokens.append(args.mask_token)
 
         src = tokenizer.decode(src_tokens)
-        tgt = tokenizer.decode(tgt_tokens)
+        # tgt = tokenizer.decode(tgt_tokens)
 
-        print(f"{src}\t{tgt}")
+        print(f"{src}\t{line.strip()}")
 
 
 if __name__ == "__main__":

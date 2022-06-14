@@ -11,8 +11,12 @@ def main():
     parser.add_argument("corpora", nargs="+", type=str)
     parser.add_argument("--src", default="cs", type=str)
     parser.add_argument("--tgt", default="uk", type=str)
-    parser.add_argument("--max-len", help="Max len in tokens.", default=100)
-    parser.add_argument("--max-ratio", default=1.5, type=float)
+    parser.add_argument(
+        "--max-len", help="Max len in tokens, default 100.",
+        type=int, default=100)
+    parser.add_argument(
+        "--max-ratio", default=1.5, type=float,
+        help="Max character lengh ratio (both sides), default 1.5.")
     args = parser.parse_args()
 
     assert args.max_ratio > 1.0

@@ -11,7 +11,8 @@ import itertools
 import re
 import sys
 
-import unicodedata
+
+assert sys.version_info >= (3, 6), "Use Python 3.6 or newer"
 
 
 def main():
