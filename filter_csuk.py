@@ -3,12 +3,6 @@ import argparse
 import re, sys
 from collections import Counter
 
-parser = argparse.ArgumentParser(description='Filter out wrong translations. Usage: paste my.cs my.uk | ./filter_csuk.py > my.filtered.tsv')
-parser.add_argument('-v', '--verbose', type=int, default=None,
-                    help='number of lines to print on stderr with the top patterns')
-args = parser.parse_args()
-
-stats, wrong = Counter(), Counter()
 
 # Čech can be a surname or Česká XY a company name, which could be left untranslated in uk
 VARIOUS = r'''(?i)če(sk|št[ií]|ši|ch[^r]) = (?i)че(ськ|х)|če(sk|ch) = cs-uk
@@ -515,32 +509,38 @@ UA_CITIES = r'''Ки[їє]в = Kyj[ei]v
 Прип'ят = Pripja[ťt]'''
 
 
-RULES = []
-for rule in VARIOUS.split('\n'):
-    cs_pat, uk_pat, direction = rule.split(' = ')
-    RULES.append((re.compile(cs_pat), re.compile(uk_pat), direction))
+def get_rules(various=True, cz_cities=True, ua_cities=True):
+    rules = []
+    if various:
+        for rule in VARIOUS.split('\n'):
+            cs_pat, uk_pat, direction = rule.split(' = ')
+            rules.append((re.compile(cs_pat), re.compile(uk_pat), direction))
 
-for rule in CZ_CITIES.split('\n'):
-    # Let's allow Czech cities untranslated (kept in Latin script) in the Ukrainian translations.
-    cs_pat, uk_pat = rule.split(' = ')
-    RULES.append((re.compile(cs_pat), re.compile(uk_pat + '|' + cs_pat), 'cs-uk'))
+    if cz_cities:
+        for rule in CZ_CITIES.split('\n'):
+            # Let's allow Czech cities untranslated (kept in Latin script) in the Ukrainian translations.
+            cs_pat, uk_pat = rule.split(' = ')
+            rules.append((re.compile(cs_pat), re.compile(uk_pat + '|' + cs_pat), 'cs-uk'))
 
-for rule in UA_CITIES.split('\n'):
-    try:
-        uk_pat, cs_pat = rule.split(' = ')
-    except ValueError:
-        print(f"SPLIT {rule}", file=sys.stderr)
-    # Одеського = oděsského, může být malé písmeno
-    RULES.append((re.compile('(?i)'+cs_pat), re.compile(uk_pat), 'uk-cs'))
+    if ua_cities:
+        for rule in UA_CITIES.split('\n'):
+            try:
+                uk_pat, cs_pat = rule.split(' = ')
+            except ValueError:
+                print(f"SPLIT {rule}", file=sys.stderr)
+            # Одеського = oděsského, může být malé písmeno
+            rules.append((re.compile('(?i)'+cs_pat), re.compile(uk_pat), 'uk-cs'))
 
-def is_wrong(line):
-    global lines
+    return rules
+
+
+def is_wrong(line, n_line, stats, wrong, rules):
     try:
         cs, uk = line.strip().split('\t')
     except ValueError:
-        print(f"SPLIT ERR (line={lines}): " + line, file=sys.stderr)
+        print(f"SPLIT ERR (line={n_line}): " + line, file=sys.stderr)
         return True
-    for cs_pat, uk_pat, direction in RULES:
+    for cs_pat, uk_pat, direction in rules:
         if direction != 'uk-cs' and cs_pat.search(cs):
             stats[cs_pat.pattern] += 1
             stats['CS-ALL'] += 1
@@ -558,14 +558,29 @@ def is_wrong(line):
     return False
 
 
-lines, wlines = 0, 0
-for line in sys.stdin:
-    lines += 1
-    if is_wrong(line):
-        wlines += 1
-    else:
-        print(line, end="")
+def main():
+    parser = argparse.ArgumentParser(
+        description='Filter out wrong translations. Usage: paste my.cs my.uk | ./filter_csuk.py > my.filtered.tsv')
+    parser.add_argument(
+        '-v', '--verbose', type=int, default=None,
+        help='number of lines to print on stderr with the top patterns')
+    args = parser.parse_args()
 
-for pat, wcount in wrong.most_common(args.verbose):
-    print(f"{pat:>40} ={stats[pat]:6}  WRONG={wcount:5}  ({100*wcount/stats[pat]:5.1f}%)", file=sys.stderr)
-print(f"Deleted {wlines:,} ({100*wlines/lines:.2f}%) lines out of {lines:,}.", file=sys.stderr)
+    rules = get_rules()
+
+    stats, wrong = Counter(), Counter()
+    n_line, wlines = 0, 0
+    for line in sys.stdin:
+        n_line += 1
+        if is_wrong(line, n_line, stats, wrong, rules):
+            wlines += 1
+        else:
+            print(line, end="")
+
+    for pat, wcount in wrong.most_common(args.verbose):
+        print(f"{pat:>40} ={stats[pat]:6}  WRONG={wcount:5}  ({100*wcount/stats[pat]:5.1f}%)", file=sys.stderr)
+    print(f"Deleted {wlines:,} ({100*wlines/n_line:.2f}%) lines out of {n_line:,}.", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
