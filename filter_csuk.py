@@ -564,6 +564,9 @@ def main():
     parser.add_argument(
         '-v', '--verbose', type=int, default=None,
         help='number of lines to print on stderr with the top patterns')
+    parser.add_argument(
+        '-r', '--reverse', action="store_true", default=False,
+        help="If set, prints the failing pairs instead of the correct ones.")
     args = parser.parse_args()
 
     rules = get_rules()
@@ -574,7 +577,9 @@ def main():
         n_line += 1
         if is_wrong(line, n_line, stats, wrong, rules):
             wlines += 1
-        else:
+            if args.reverse:
+                print(line, end="")
+        elif not args.reverse:
             print(line, end="")
 
     for pat, wcount in wrong.most_common(args.verbose):
